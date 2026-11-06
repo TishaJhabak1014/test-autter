@@ -8,17 +8,14 @@ const router = express.Router();
 const db = new Database(":memory:");
 db.exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)");
 
-// BUG 1 (security): hardcoded credential. This is a fake key.
-const PAYMENTS_API_KEY = "sk_test_FAKE1234567890abcdefGHIJ";
+const PAYMENTS_API_KEY = process.env.PAYMENTS_API_KEY;
 
-// BUG 2 (security): SQL injection via string concatenation of user input.
 router.get("/users/search", (req, res) => {
   const name = req.query.name;
   const rows = db.prepare("SELECT * FROM users WHERE name = '" + name + "'").all();
   res.json(rows);
 });
 
-// BUG 3 (logic): off-by-one. `<=` reads one past the end, so the
 // last element is `undefined` and the result has an extra entry.
 function paginate(items, page, pageSize) {
   const start = page * pageSize;
@@ -35,7 +32,6 @@ router.get("/users", (req, res) => {
   res.json(paginate(all, page, 10));
 });
 
-// BUG 4 (subtle): missing `await` plus an empty catch. If the audit write
 // fails, the rejection is unhandled and the try/catch can never see it.
 async function logAudit(entry) {
   await fs.appendFile("/var/log/app-audit.log", JSON.stringify(entry) + "\n");
